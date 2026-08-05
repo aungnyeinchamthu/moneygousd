@@ -1,0 +1,17 @@
+name = "moneygousd-monitor"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+
+[observability]
+enabled = true
+
+[triggers]
+crons = ["*/10 * * * *"]
+
+[vars]
+TELEGRAM_CHAT_ID = "1789940151"
+
+[[kv_namespaces]]
+binding = "STATE"
+id = "face5454031f49de95b2f12906f6d520"
+preview_id = "57adc72f9eba40449ddf6d3c00d4f1c4"
