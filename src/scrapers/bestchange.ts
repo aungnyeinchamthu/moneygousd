@@ -1,4 +1,5 @@
 import { ExchangerOffer, SiteData } from "../types";
+import { isoBangkok } from "../utils";
 
 const BESTCHANGE_URL = "https://www.bestchange.ru/tether-trc20-to-moneygo.html";
 
@@ -160,7 +161,7 @@ function createError(source: string, msg: string): SiteData {
     totalReserve: 0,
     weightedAverageRate: 0,
     exchangerCount: 0,
-    updatedAt: new Date().toISOString(),
+    updatedAt: isoBangkok(),
     fetchError: msg,
   };
 }

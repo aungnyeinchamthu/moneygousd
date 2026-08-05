@@ -1,5 +1,6 @@
 import { ExchangerOffer, SiteData } from "./types";
 import { compareSites, formatComparison, ComparisonResult } from "./compare";
+import { isoBangkokShort } from "./utils";
 
 function escapeHtml(s: string): string {
   return s
@@ -25,7 +26,7 @@ export function buildReport(
   prevBestchange: SiteData | null,
   thresholds: { lowReserve: number; rateDropPercent: number; rateDiffPercent: number }
 ): string {
-  const now = new Date().toISOString().replace("T", " ").slice(0, 19);
+  const now = isoBangkokShort();
   const parts: string[] = [];
 
   parts.push(formatHeader(emon, bestchange, now));

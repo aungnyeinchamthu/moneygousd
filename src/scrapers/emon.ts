@@ -1,4 +1,5 @@
 import { ExchangerOffer, SiteData } from "../types";
+import { isoBangkok } from "../utils";
 
 const EMON_URL = "https://e-mon.cc/exchange/USDTTRC20/MNGUSD";
 
@@ -129,7 +130,7 @@ function parseSummary(html: string): { totalReserve: number; weightedAvg: number
 
 function extractUpdatedAt(html: string): string {
   const m = html.match(/(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\s+время\s+обновления/);
-  return m ? m[1] : new Date().toISOString();
+  return m ? m[1] : isoBangkok();
 }
 
 function parseNum(s: string): number {
@@ -143,7 +144,7 @@ function createError(source: string, msg: string): SiteData {
     totalReserve: 0,
     weightedAverageRate: 0,
     exchangerCount: 0,
-    updatedAt: new Date().toISOString(),
+    updatedAt: isoBangkok(),
     fetchError: msg,
   };
 }

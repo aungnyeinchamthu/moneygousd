@@ -8,6 +8,7 @@ import {
 } from "./telegram";
 import { SiteData } from "./types";
 import { compareSites, formatComparison } from "./compare";
+import { isoBangkok } from "./utils";
 
 export interface Env {
   STATE: KVNamespace;
@@ -199,7 +200,7 @@ async function runScan(env: Env, emon: SiteData, bestchange: SiteData, sendNotif
 
   return {
     status: "ok",
-    timestamp: new Date().toISOString(),
+    timestamp: isoBangkok(),
     eMon: {
       exchangers: emon.exchangerCount,
       totalReserve: emon.totalReserve,
