@@ -7,7 +7,6 @@ interface DirectSource {
 
 const DIRECT_SOURCES: DirectSource[] = [
   { name: "HD-Change", url: "https://hd-change.com/en/exchange-usdttrc20-to-mngusd/" },
-  { name: "1Million", url: "https://1million.exchange/exchange_usdttrc20_to_mngusd/" },
 ];
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
