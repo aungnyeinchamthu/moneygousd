@@ -110,31 +110,27 @@ export async function scrapeBestChange(): Promise<SiteData> {
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
+const PROXIES = [
+  `https://api.allorigins.win/raw?url=${encodeURIComponent(BESTCHANGE_URL)}`,
+  `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(BESTCHANGE_URL)}`,
+];
+
 async function fetchBestChange(): Promise<FetchResult> {
-  const errors: string[] = [];
-
-  const direct = await tryFetch(BESTCHANGE_URL, "direct");
+  const direct = await tryFetch(BESTCHANGE_URL, "direct", 8000);
   if (direct.html) return direct;
-  if (direct.error) errors.push(`direct: ${direct.error}`);
 
-  const proxies = [
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(BESTCHANGE_URL)}`,
-    `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(BESTCHANGE_URL)}`,
-  ];
-
-  for (const proxyUrl of proxies) {
-    const result = await tryFetch(proxyUrl, "proxy");
+  for (const proxyUrl of PROXIES) {
+    const result = await tryFetch(proxyUrl, "proxy", 10000);
     if (result.html) return result;
-    if (result.error) errors.push(`proxy(${proxyUrl.slice(0, 40)}): ${result.error}`);
   }
 
-  return { html: null, error: errors.join(" | ") || "unknown error", viaProxy: false };
+  return { html: null, error: "bestchange.ru unreachable (blocked)", viaProxy: false };
 }
 
-async function tryFetch(url: string, mode: "direct" | "proxy"): Promise<FetchResult> {
+async function tryFetch(url: string, mode: "direct" | "proxy", timeoutMs: number): Promise<FetchResult> {
   try {
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 25000);
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     const resp = await fetch(url, {
       headers: {
         "User-Agent": UA,
