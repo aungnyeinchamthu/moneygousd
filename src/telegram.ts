@@ -22,6 +22,7 @@ export interface AlertMessages {
 export function buildReport(
   emon: SiteData,
   bestchange: SiteData,
+  direct: SiteData,
   prevEmon: SiteData | null,
   prevBestchange: SiteData | null,
   thresholds: { lowReserve: number; rateDropPercent: number; rateDiffPercent: number }
@@ -31,8 +32,8 @@ export function buildReport(
 
   parts.push(formatHeader(emon, bestchange, now));
 
-  if (emon.fetchError && bestchange.fetchError) {
-    parts.push(`BOTH SITES FAILED: e-mon=${emon.fetchError} | bestchange=${bestchange.fetchError}`);
+  if (emon.fetchError && bestchange.fetchError && direct.offers.length === 0) {
+    parts.push(`ALL SOURCES FAILED: e-mon=${emon.fetchError} | bestchange=${bestchange.fetchError} | direct=${direct.fetchError}`);
     return parts.join("\n");
   }
 
@@ -48,6 +49,12 @@ export function buildReport(
     parts.push(`bestchange.ru: ERROR - ${bestchange.fetchError}`);
   }
 
+  if (direct.offers.length > 0) {
+    parts.push(formatDirectTable(direct));
+  } else if (direct.fetchError) {
+    parts.push(`direct-exchanges: ERROR - ${direct.fetchError}`);
+  }
+
   const comparison = buildComparison(emon, bestchange, thresholds);
   if (comparison) parts.push(comparison);
 
@@ -60,6 +67,14 @@ export function buildReport(
   if (trend) parts.push(trend);
 
   return parts.join("\n");
+}
+
+function formatDirectTable(direct: SiteData): string {
+  let table = `\n--- direct exchanges (live rate) ---\n`;
+  for (const o of direct.offers) {
+    table += `${escapeHtml(o.name).padEnd(15)} ${o.rate.toFixed(6)} MNGUSD per 1 USDT\n`;
+  }
+  return table;
 }
 
 function formatHeader(emon: SiteData, bestchange: SiteData, now: string): string {

@@ -8,12 +8,12 @@ interface FetchResult {
   viaProxy: boolean;
 }
 
-export async function scrapeBestChange(): Promise<SiteData> {
+export async function scrapeBestChange(jinaApiKey: string): Promise<SiteData> {
   const offers: ExchangerOffer[] = [];
   let totalReserve = 0;
   let weightedAverageRate = 0;
 
-  const { html, error, viaProxy } = await fetchBestChange();
+  const { html, error, viaProxy } = await fetchBestChange(jinaApiKey);
 
   if (!html) {
     return {
@@ -110,24 +110,33 @@ export async function scrapeBestChange(): Promise<SiteData> {
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
-const PROXIES = [
-  `https://api.allorigins.win/raw?url=${encodeURIComponent(BESTCHANGE_URL)}`,
-  `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(BESTCHANGE_URL)}`,
-];
-
-async function fetchBestChange(): Promise<FetchResult> {
-  const direct = await tryFetch(BESTCHANGE_URL, "direct", 8000);
+async function fetchBestChange(jinaApiKey: string): Promise<FetchResult> {
+  const direct = await tryFetch(BESTCHANGE_URL, "direct", 8000, {});
   if (direct.html) return direct;
 
-  for (const proxyUrl of PROXIES) {
-    const result = await tryFetch(proxyUrl, "proxy", 10000);
-    if (result.html) return result;
-  }
+  const jinaHeaders: Record<string, string> = { "X-Return-Format": "html" };
+  if (jinaApiKey) jinaHeaders["Authorization"] = `Bearer ${jinaApiKey}`;
+
+  const jina = await tryFetch(
+    `https://r.jina.ai/${BESTCHANGE_URL}`,
+    "proxy",
+    20000,
+    jinaHeaders
+  );
+  if (jina.html) return jina;
+
+  const allorigins = await tryFetch(
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(BESTCHANGE_URL)}`,
+    "proxy",
+    10000,
+    {}
+  );
+  if (allorigins.html) return allorigins;
 
   return { html: null, error: "bestchange.ru unreachable (blocked)", viaProxy: false };
 }
 
-async function tryFetch(url: string, mode: "direct" | "proxy", timeoutMs: number): Promise<FetchResult> {
+async function tryFetch(url: string, mode: "direct" | "proxy", timeoutMs: number, extraHeaders: Record<string, string>): Promise<FetchResult> {
   try {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -136,6 +145,7 @@ async function tryFetch(url: string, mode: "direct" | "proxy", timeoutMs: number
         "User-Agent": UA,
         "Accept": "text/html,application/xhtml+xml",
         "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8",
+        ...extraHeaders,
       },
       redirect: "follow",
       signal: ctrl.signal,

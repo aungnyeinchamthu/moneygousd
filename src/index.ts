@@ -1,5 +1,6 @@
 import { scrapeEmon } from "./scrapers/emon";
 import { scrapeBestChange } from "./scrapers/bestchange";
+import { scrapeDirectExchanges } from "./scrapers/direct";
 import {
   buildReport,
   buildAlertMessage,
@@ -14,6 +15,7 @@ export interface Env {
   STATE: KVNamespace;
   TELEGRAM_BOT_TOKEN: string;
   TELEGRAM_CHAT_ID: string;
+  JINA_API_KEY?: string;
   LOW_RESERVE_THRESHOLD?: string;
   RATE_DROP_PERCENT?: string;
   RATE_DIFF_PERCENT?: string;
@@ -89,8 +91,12 @@ async function checkRateLimit(env: Env, key: string, maxReqs: number, windowSec:
 export default {
   async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext): Promise<void> {
     console.log("Scheduled scan starting...");
-    const [emon, bestchange] = await Promise.all([scrapeEmon(), scrapeBestChange()]);
-    await runScan(env, emon, bestchange, true);
+    const [emon, bestchange, direct] = await Promise.all([
+      scrapeEmon(),
+      scrapeBestChange(env.JINA_API_KEY || ""),
+      scrapeDirectExchanges(env.JINA_API_KEY || ""),
+    ]);
+    await runScan(env, emon, bestchange, direct, true);
   },
 
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -120,17 +126,22 @@ export default {
 
     let emon: SiteData | null = null;
     let bestchange: SiteData | null = null;
+    let direct: SiteData | null = null;
 
     const getData = async () => {
-      if (!emon || !bestchange) {
-        [emon, bestchange] = await Promise.all([scrapeEmon(), scrapeBestChange()]);
+      if (!emon || !bestchange || !direct) {
+        [emon, bestchange, direct] = await Promise.all([
+          scrapeEmon(),
+          scrapeBestChange(env.JINA_API_KEY || ""),
+          scrapeDirectExchanges(env.JINA_API_KEY || ""),
+        ]);
       }
-      return { emon, bestchange };
+      return { emon, bestchange, direct };
     };
 
     if (path === "/scan" || path === "/") {
-      const { emon: e, bestchange: b } = await getData();
-      const result = await runScan(env, e, b, false);
+      const { emon: e, bestchange: b, direct: d } = await getData();
+      const result = await runScan(env, e, b, d, false);
       const comparison = compareSites(e, b);
       result.comparison = {
         matched: comparison.matched.map(r => ({
@@ -152,9 +163,16 @@ export default {
     }
 
     if (path === "/compare") {
-      const { emon: e, bestchange: b } = await getData();
+      const { emon: e, bestchange: b, direct: d } = await getData();
       const comparison = compareSites(e, b);
-      return new Response(formatComparison(comparison), {
+      let text = formatComparison(comparison);
+      if (d.offers.length > 0) {
+        text += "\n\n--- DIRECT EXCHANGES (live rate) ---\n";
+        for (const o of d.offers) {
+          text += `${o.name.padEnd(15)} ${o.rate.toFixed(6)} MNGUSD per 1 USDT\n`;
+        }
+      }
+      return new Response(text, {
         headers: { ...corsHeaders, "Content-Type": "text/plain; charset=utf-8" },
       });
     }
@@ -163,14 +181,14 @@ export default {
   },
 };
 
-async function runScan(env: Env, emon: SiteData, bestchange: SiteData, sendNotification: boolean): Promise<any> {
+async function runScan(env: Env, emon: SiteData, bestchange: SiteData, direct: SiteData, sendNotification: boolean): Promise<any> {
   const thresholds = getThresholds(env);
   const tgConfig = getTelegramConfig(env);
 
   const prev = await loadPrev(env);
   let lastAlertTime = prev.lastAlertTime;
 
-  const report = buildReport(emon, bestchange, prev.emon, prev.bestchange, thresholds);
+  const report = buildReport(emon, bestchange, direct, prev.emon, prev.bestchange, thresholds);
   console.log(report);
 
   let alertSent = false;
@@ -214,6 +232,11 @@ async function runScan(env: Env, emon: SiteData, bestchange: SiteData, sendNotif
       weightedAvgRate: bestchange.weightedAverageRate,
       topRate: bestchange.offers[0]?.rate || 0,
       error: bestchange.fetchError || null,
+    },
+    direct: {
+      exchangers: direct.exchangerCount,
+      offers: direct.offers.map(o => ({ name: o.name, rate: o.rate, minAmount: o.minAmount, maxAmount: o.maxAmount })),
+      error: direct.fetchError || null,
     },
     alertSent,
     alertMessage: alertMessage || null,
