@@ -56,14 +56,6 @@ export async function scrapeEmon(): Promise<SiteData> {
       }
     }
 
-    const strippedBody = tbody
-      .replace(/<script[\s\S]*?<\/script>/gi, "")
-      .replace(/<style[\s\S]*?<\/style>/gi, "")
-      .replace(/<[^>]+>/g, " ")
-      .replace(/&nbsp;/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-
     offers.sort((a, b) => b.rate - a.rate);
 
     const summary = parseSummary(html);
@@ -122,8 +114,14 @@ function parseRateRow(text: string, fallbackName: string): ExchangerOffer | null
 }
 
 function parseSummary(html: string): { totalReserve: number; weightedAvg: number } | null {
-  const stripped = html.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
-  const m = stripped.match(/Суммарный\s+резерв\s+обменников:\s*([\d\s.,]+)\s*MoneyGo\s*USD\.\s*Средневзвешенный\s+курс\s+обмена:\s*([\d\s.,]+)/);
+  const idx = html.indexOf("Суммарный резерв");
+  if (idx === -1) return null;
+  const window = html
+    .slice(idx, idx + 500)
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ");
+  const m = window.match(/Суммарный\s+резерв\s+обменников:\s*([\d\s.,]+)\s*MoneyGo\s*USD\.?\s*Средневзвешенный\s+курс\s+обмена:\s*([\d\s.,]+)/);
   if (!m) return null;
   return { totalReserve: parseNum(m[1]), weightedAvg: parseNum(m[2]) };
 }

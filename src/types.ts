@@ -22,13 +22,19 @@ export interface SiteData {
   exchangerCount: number;
   updatedAt: string;
   fetchError?: string;
+  /** true when data came from the stale KV fallback */
+  stale?: boolean;
 }
 
-export interface AlertThresholds {
-  /** Minimum total reserve before alerting */
-  lowReserveThreshold: number;
-  /** Rate drop percentage to alert (e.g. 2 means 2% drop) */
-  rateDropPercent: number;
-  /** Rate difference between sites to alert (percentage) */
-  rateDiffPercent: number;
+/** Slim per-scan summary stored in KV (tiny value, cheap reads/writes) */
+export interface ScanSnapshot {
+  ts: number;
+  emonTop: number;
+  emonWavg: number;
+  emonReserve: number;
+  bcTop: number;
+  bcWavg: number;
+  bcReserve: number;
+  directTop: number;
+  lastAlertTime: number;
 }

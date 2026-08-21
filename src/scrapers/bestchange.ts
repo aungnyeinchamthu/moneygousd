@@ -1,11 +1,11 @@
 import { ExchangerOffer, SiteData } from "../types";
+import { isoBangkok } from "../utils";
 
 const BESTCHANGE_URL = "https://www.bestchange.ru/tether-trc20-to-moneygo.html";
 
 interface FetchResult {
   html: string | null;
   error: string;
-  viaProxy: boolean;
 }
 
 export async function scrapeBestChange(jinaApiKey: string): Promise<SiteData> {
@@ -13,7 +13,7 @@ export async function scrapeBestChange(jinaApiKey: string): Promise<SiteData> {
   let totalReserve = 0;
   let weightedAverageRate = 0;
 
-  const { html, error, viaProxy } = await fetchBestChange(jinaApiKey);
+  const { html, error } = await fetchBestChange(jinaApiKey);
 
   if (!html) {
     return {
@@ -22,7 +22,7 @@ export async function scrapeBestChange(jinaApiKey: string): Promise<SiteData> {
       totalReserve: 0,
       weightedAverageRate: 0,
       exchangerCount: 0,
-      updatedAt: new Date().toISOString(),
+      updatedAt: isoBangkok(),
       fetchError: error,
     };
   }
@@ -84,9 +84,7 @@ export async function scrapeBestChange(jinaApiKey: string): Promise<SiteData> {
 
   offers.sort((a, b) => b.rate - a.rate);
 
-  const strippedHtml = html.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
-
-  const summary = parseSummary(strippedHtml);
+  const summary = parseSummary(html);
   if (summary) {
     totalReserve = summary.totalReserve;
     weightedAverageRate = summary.weightedAvg;
@@ -111,7 +109,7 @@ export async function scrapeBestChange(jinaApiKey: string): Promise<SiteData> {
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
 async function fetchBestChange(jinaApiKey: string): Promise<FetchResult> {
-  const direct = await tryFetch(BESTCHANGE_URL, "direct", 8000, {});
+  const direct = await tryFetch(BESTCHANGE_URL, 8000, {});
   if (direct.html) return direct;
 
   const jinaHeaders: Record<string, string> = { "X-Return-Format": "html" };
@@ -119,7 +117,6 @@ async function fetchBestChange(jinaApiKey: string): Promise<FetchResult> {
 
   const jina = await tryFetch(
     `https://r.jina.ai/${BESTCHANGE_URL}`,
-    "proxy",
     20000,
     jinaHeaders
   );
@@ -127,16 +124,15 @@ async function fetchBestChange(jinaApiKey: string): Promise<FetchResult> {
 
   const allorigins = await tryFetch(
     `https://api.allorigins.win/raw?url=${encodeURIComponent(BESTCHANGE_URL)}`,
-    "proxy",
     10000,
     {}
   );
   if (allorigins.html) return allorigins;
 
-  return { html: null, error: "bestchange.ru unreachable (blocked)", viaProxy: false };
+  return { html: null, error: "bestchange.ru unreachable (blocked)" };
 }
 
-async function tryFetch(url: string, mode: "direct" | "proxy", timeoutMs: number, extraHeaders: Record<string, string>): Promise<FetchResult> {
+async function tryFetch(url: string, timeoutMs: number, extraHeaders: Record<string, string>): Promise<FetchResult> {
   try {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -153,7 +149,7 @@ async function tryFetch(url: string, mode: "direct" | "proxy", timeoutMs: number
     clearTimeout(timer);
 
     if (!resp.ok) {
-      return { html: null, error: `HTTP ${resp.status}`, viaProxy: mode === "proxy" };
+      return { html: null, error: `HTTP ${resp.status}` };
     }
 
     const buf = await resp.arrayBuffer();
@@ -167,12 +163,12 @@ async function tryFetch(url: string, mode: "direct" | "proxy", timeoutMs: number
     }
 
     if (!html.includes("MoneyGo")) {
-      return { html: null, error: "no data in response", viaProxy: mode === "proxy" };
+      return { html: null, error: "no data in response" };
     }
 
-    return { html, error: "", viaProxy: mode === "proxy" };
+    return { html, error: "" };
   } catch (e: any) {
-    return { html: null, error: e.message || "fetch failed", viaProxy: mode === "proxy" };
+    return { html: null, error: e.message || "fetch failed" };
   }
 }
 
@@ -200,8 +196,15 @@ function stripTags(s: string): string {
     .trim();
 }
 
-function parseSummary(text: string): { totalReserve: number; weightedAvg: number } | null {
-  const m = text.match(
+function parseSummary(html: string): { totalReserve: number; weightedAvg: number } | null {
+  const idx = html.search(/уммарный\s+резерв\s+обменников/i);
+  if (idx === -1) return null;
+  const window = html
+    .slice(idx, idx + 500)
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ");
+  const m = window.match(
     /[СC]уммарный\s+резерв\s+обменников:\s*([\d\s]+)\s*USD\s+MoneyGo[.\s]*[СC]редневзвешенный\s+курс(?:\s+обмена)?:\s*([\d\s.,]+)/i
   );
   if (!m) return null;
@@ -214,10 +217,10 @@ function parseSummary(text: string): { totalReserve: number; weightedAvg: number
 function extractUpdatedAt(html: string): string {
   const m = html.match(/(\d{2}:\d{2}:\d{2})/);
   if (m) {
-    const today = new Date().toISOString().slice(0, 10);
-    return `${today}T${m[1]}`;
+    const today = isoBangkok().slice(0, 10);
+    return `${today} ${m[1]} (ICT)`;
   }
-  return new Date().toISOString();
+  return isoBangkok();
 }
 
 function parseNum(s: string): number {

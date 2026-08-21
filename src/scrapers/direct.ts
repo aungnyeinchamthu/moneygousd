@@ -1,4 +1,5 @@
 import { ExchangerOffer, SiteData } from "../types";
+import { isoBangkok } from "../utils";
 
 interface DirectSource {
   name: string;
@@ -41,7 +42,7 @@ export async function scrapeDirectExchanges(jinaApiKey: string): Promise<SiteDat
     totalReserve,
     weightedAverageRate,
     exchangerCount: offers.length,
-    updatedAt: new Date().toISOString(),
+    updatedAt: isoBangkok(),
     fetchError: errors.length > 0 ? errors.join(" | ") : undefined,
   };
 }

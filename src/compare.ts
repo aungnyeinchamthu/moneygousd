@@ -8,6 +8,10 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
+function formatNum(n: number): string {
+  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(Math.round(n)).replace(/,/g, " ");
+}
+
 function normalizeName(name: string): string {
   const lower = name.toLowerCase().trim();
   const map: Record<string, string> = {
@@ -172,7 +176,7 @@ export function formatComparison(result: ComparisonResult): string {
     lines.push(`Only on e-mon.cc (${result.onlyEmon.length}):`);
     for (const r of result.onlyEmon) {
       const name = (r.nameEmon || r.name).slice(0, 25).padEnd(25);
-      lines.push(`  ${name} rate: ${r.rateEmon?.toFixed(6)}  reserve: ${r.reserveEmon?.toLocaleString("en-US")}`);
+      lines.push(`  ${name} rate: ${r.rateEmon?.toFixed(6)}  reserve: ${formatNum(r.reserveEmon || 0)}`);
     }
     lines.push("");
   }
@@ -181,7 +185,7 @@ export function formatComparison(result: ComparisonResult): string {
     lines.push(`Only on bestchange.ru (${result.onlyBestChange.length}):`);
     for (const r of result.onlyBestChange) {
       const name = (r.nameBC || r.name).slice(0, 25).padEnd(25);
-      lines.push(`  ${name} rate: ${r.rateBC?.toFixed(6)}  reserve: ${r.reserveBC?.toLocaleString("en-US")}`);
+      lines.push(`  ${name} rate: ${r.rateBC?.toFixed(6)}  reserve: ${formatNum(r.reserveBC || 0)}`);
     }
     lines.push("");
   }
